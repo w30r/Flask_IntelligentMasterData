@@ -46,4 +46,5 @@ def match_wells():
         return send_file(tmp.name, as_attachment=True, download_name="matched_wells.xlsx", mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(debug=False, host='0.0.0.0', port=port)
