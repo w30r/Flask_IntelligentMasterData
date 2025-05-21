@@ -80,6 +80,11 @@ def get_result(job_id):
 
     return jsonify(job)
 
+@app.route('/list-jobs', methods=['GET'])
+def list_jobs():
+    return jsonify({job_id: {"status": j["status"], "created_at": j.get("created_at")} for job_id, j in jobs.items()})
+
+
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
     app.run(debug=False, host='0.0.0.0', port=port)
