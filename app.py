@@ -1,81 +1,79 @@
 from flask import Flask, request, jsonify
 import pandas as pd
 from rapidfuzz import fuzz, process
-import io
-import base64
-import os
+import base64, io, uuid, threading, os
 
 app = Flask(__name__)
 
-# Load MasterWells.xlsx
-MASTER_WELLS_FILE = "MasterWells.xlsx"
-MASTER_DF = pd.read_excel(MASTER_WELLS_FILE)
+# Load master well list once
+MASTER_DF = pd.read_excel("MasterWells.xlsx")
 MASTER_WELL_NAMES = MASTER_DF["Well Name"].dropna().astype(str).tolist()
 
-@app.route('/match-wells', methods=['POST'])
-def match_wells():
-    # Get the JSON data from the request
-    data = request.json
-    
-    if 'file' not in data or 'well_column' not in data:
-        return jsonify({
-            "status": "error",
-            "message": "Missing 'file' or 'well_column' in request."
-        })
+# In-memory job store
+jobs = {}
 
-    # Extract file and well_column from the JSON
-    base64_file = data['file']
-    well_column = data['well_column']
-
+# Background processing function
+def process_file_async(job_id, base64_file, well_column):
     try:
-        # Decode the base64 file content back to binary
         file_data = base64.b64decode(base64_file)
         user_file = io.BytesIO(file_data)
-        
-        # Read the Excel file into a pandas DataFrame
         user_df = pd.read_excel(user_file)
+
+        if well_column not in user_df.columns:
+            jobs[job_id] = {"status": "error", "message": f"Column '{well_column}' not found"}
+            return
+
+        user_wells = user_df[well_column].dropna().astype(str).tolist()
+        results = []
+
+        for well in user_wells:
+            match, score, _ = process.extractOne(well, MASTER_WELL_NAMES, scorer=fuzz.token_sort_ratio)
+            results.append({
+                'User Well Name': well,
+                'Matched Master Well Name': match,
+                'Similarity Score': score
+            })
+
+        result_df = pd.DataFrame(results)
+        output = io.BytesIO()
+        result_df.to_excel(output, index=False)
+        output.seek(0)
+
+        encoded_result = base64.b64encode(output.read()).decode("utf-8")
+
+        jobs[job_id] = {
+            "status": "done",
+            "fileContent": encoded_result,
+            "fileName": "matched_wells.xlsx"
+        }
     except Exception as e:
-        return jsonify({
-            "status": "error",
-            "message": f"Failed to read uploaded Excel file: {str(e)}"
-        })
+        jobs[job_id] = {"status": "error", "message": str(e)}
 
-    # Check if the well_column exists in the user's file
-    if well_column not in user_df.columns:
-        return jsonify({
-            "status": "error",
-            "message": f"Column '{well_column}' not found in uploaded file."
-        })
+# Submit endpoint
+@app.route('/submit-task', methods=['POST'])
+def submit_task():
+    data = request.json
 
-    # Fuzzy matching
-    user_wells = user_df[well_column].dropna().astype(str).tolist()
-    results = []
+    if not data or 'file' not in data or 'well_column' not in data:
+        return jsonify({"status": "error", "message": "Missing 'file' or 'well_column'"}), 400
 
-    for well in user_wells:
-        match, score, _ = process.extractOne(well, MASTER_WELL_NAMES, scorer=fuzz.token_sort_ratio)
-        results.append({
-            'User Well Name': well,
-            'Matched Master Well Name': match,
-            'Similarity Score': score
-        })
+    job_id = str(uuid.uuid4())
+    jobs[job_id] = {"status": "pending"}
 
-    # Convert results to DataFrame
-    result_df = pd.DataFrame(results)
+    # Start background thread
+    thread = threading.Thread(target=process_file_async, args=(job_id, data['file'], data['well_column']))
+    thread.start()
 
-    # Save result as an Excel file to memory
-    output = io.BytesIO()
-    result_df.to_excel(output, index=False)
-    output.seek(0)
+    return jsonify({"status": "submitted", "job_id": job_id}), 202
 
-    # Encode the result Excel file in Base64 format
-    encoded_file = base64.b64encode(output.read()).decode('utf-8')
+# Poll result endpoint
+@app.route('/get-result/<job_id>', methods=['GET'])
+def get_result(job_id):
+    job = jobs.get(job_id)
+    if not job:
+        return jsonify({"status": "error", "message": "Job ID not found"}), 404
 
-    # Return response with the encoded file content
-    return jsonify({
-        "status": "success",
-        "fileName": "matched_wells.xlsx",
-        "fileContent": encoded_file
-    })
+    return jsonify(job)
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
