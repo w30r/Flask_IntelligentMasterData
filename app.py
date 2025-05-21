@@ -21,6 +21,7 @@ def process_file_async(job_id, base64_file, well_column):
 
         if well_column not in user_df.columns:
             jobs[job_id] = {"status": "error", "message": f"Column '{well_column}' not found"}
+            print(f"[❌] Job {job_id} failed: column '{well_column}' not found")
             return
 
         user_wells = user_df[well_column].dropna().astype(str).tolist()
@@ -46,8 +47,12 @@ def process_file_async(job_id, base64_file, well_column):
             "fileContent": encoded_result,
             "fileName": "matched_wells.xlsx"
         }
+
+        print(f"[✅] Job {job_id} completed successfully.")
     except Exception as e:
         jobs[job_id] = {"status": "error", "message": str(e)}
+        print(f"[❌] Job {job_id} failed with error: {e}")
+
 
 # Submit endpoint
 @app.route('/submit-task', methods=['POST'])
@@ -71,7 +76,7 @@ def submit_task():
 def get_result(job_id):
     job = jobs.get(job_id)
     if not job:
-        return jsonify({"status": "error", "message": "Job ID not found"}), 404
+        return jsonify({"status": "error", "message": "Job ID not found"}), 200
 
     return jsonify(job)
 
