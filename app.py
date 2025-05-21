@@ -14,16 +14,25 @@ MASTER_WELL_NAMES = MASTER_DF["Well Name"].dropna().astype(str).tolist()
 
 @app.route('/match-wells', methods=['POST'])
 def match_wells():
-    if 'file' not in request.files or 'well_column' not in request.form:
+    # Get the JSON data from the request
+    data = request.json
+    
+    if 'file' not in data or 'well_column' not in data:
         return jsonify({
             "status": "error",
             "message": "Missing 'file' or 'well_column' in request."
         })
 
-    user_file = request.files['file']
-    well_column = request.form['well_column']
+    # Extract file and well_column from the JSON
+    base64_file = data['file']
+    well_column = data['well_column']
 
     try:
+        # Decode the base64 file content back to binary
+        file_data = base64.b64decode(base64_file)
+        user_file = io.BytesIO(file_data)
+        
+        # Read the Excel file into a pandas DataFrame
         user_df = pd.read_excel(user_file)
     except Exception as e:
         return jsonify({
@@ -31,6 +40,7 @@ def match_wells():
             "message": f"Failed to read uploaded Excel file: {str(e)}"
         })
 
+    # Check if the well_column exists in the user's file
     if well_column not in user_df.columns:
         return jsonify({
             "status": "error",
@@ -49,14 +59,18 @@ def match_wells():
             'Similarity Score': score
         })
 
+    # Convert results to DataFrame
     result_df = pd.DataFrame(results)
 
-    # Save to memory and encode
+    # Save result as an Excel file to memory
     output = io.BytesIO()
     result_df.to_excel(output, index=False)
     output.seek(0)
+
+    # Encode the result Excel file in Base64 format
     encoded_file = base64.b64encode(output.read()).decode('utf-8')
 
+    # Return response with the encoded file content
     return jsonify({
         "status": "success",
         "fileName": "matched_wells.xlsx",
