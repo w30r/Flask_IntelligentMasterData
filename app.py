@@ -95,10 +95,11 @@ def get_result(job_id):
 
 @app.route('/list-jobs', methods=['GET'])
 def list_jobs():
-    job_summaries = {}
+    job_list = []
 
     for job_id, job in jobs.items():
-        job_summaries[job_id] = {
+        job_summary = {
+            "job_id": job_id,
             "status": job["status"],
             "created_at": job.get("created_at"),
             "total_wells": job.get("total_wells"),
@@ -106,8 +107,10 @@ def list_jobs():
             "matches_below_90": job.get("matches_below_90"),
             "percent_high_quality": job.get("percent_high_quality")
         }
+        job_list.append(job_summary)
 
-    return jsonify(job_summaries)
+    return jsonify(job_list)
+
 
 
 @app.route('/extract-headers', methods=['POST'])
