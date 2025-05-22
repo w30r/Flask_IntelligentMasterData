@@ -43,10 +43,19 @@ def process_file_async(job_id, base64_file, well_column):
 
         encoded_result = base64.b64encode(output.read()).decode("utf-8")
 
+        matches_over_90 = sum(1 for r in results if r["Similarity Score"] >= 90)
+        matches_below_90 = len(results) - matches_over_90
+        percent_high_quality = round(matches_over_90 / len(results) * 100, 2)
+
         jobs[job_id] = {
             "status": "done",
             "fileContent": encoded_result,
-            "fileName": "matched_wells.xlsx"
+            "fileName": "matched_wells.xlsx",
+            "created_at": datetime.utcnow().isoformat(),
+            "total_wells": len(results),
+            "matches_over_90": matches_over_90,
+            "matches_below_90": matches_below_90,
+            "percent_high_quality": percent_high_quality
         }
 
         print(f"[✅] Job {job_id} completed successfully.")
@@ -86,7 +95,20 @@ def get_result(job_id):
 
 @app.route('/list-jobs', methods=['GET'])
 def list_jobs():
-    return jsonify({job_id: {"status": j["status"], "created_at": j.get("created_at")} for job_id, j in jobs.items()})
+    job_summaries = {}
+
+    for job_id, job in jobs.items():
+        job_summaries[job_id] = {
+            "status": job["status"],
+            "created_at": job.get("created_at"),
+            "total_wells": job.get("total_wells"),
+            "matches_over_90": job.get("matches_over_90"),
+            "matches_below_90": job.get("matches_below_90"),
+            "percent_high_quality": job.get("percent_high_quality")
+        }
+
+    return jsonify(job_summaries)
+
 
 @app.route('/extract-headers', methods=['POST'])
 def extract_headers():
