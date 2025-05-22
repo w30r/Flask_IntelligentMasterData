@@ -2,6 +2,7 @@ from flask import Flask, request, jsonify
 import pandas as pd
 from rapidfuzz import fuzz, process
 import base64, io, uuid, threading, os
+import datetime
 
 app = Flask(__name__)
 
@@ -83,6 +84,26 @@ def get_result(job_id):
 @app.route('/list-jobs', methods=['GET'])
 def list_jobs():
     return jsonify({job_id: {"status": j["status"], "created_at": j.get("created_at")} for job_id, j in jobs.items()})
+
+@app.route('/extract-headers', methods=['POST'])
+def extract_headers():
+    data = request.json
+    if not data or 'file' not in data:
+        return jsonify({"status": "error", "message": "Missing 'file' in request"}), 400
+
+    try:
+        # Decode base64 and read Excel
+        file_data = base64.b64decode(data['file'])
+        file_stream = io.BytesIO(file_data)
+        df = pd.read_excel(file_stream)
+
+        # Get column headers
+        headers = df.columns.tolist()
+
+        return jsonify({"status": "success", "headers": headers})
+
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 
 if __name__ == '__main__':
