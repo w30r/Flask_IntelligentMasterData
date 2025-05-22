@@ -47,16 +47,16 @@ def process_file_async(job_id, base64_file, well_column):
         matches_below_90 = len(results) - matches_over_90
         percent_high_quality = round(matches_over_90 / len(results) * 100, 2)
 
-        jobs[job_id] = {
+        jobs[job_id].update({
             "status": "done",
             "fileContent": encoded_result,
             "fileName": "matched_wells.xlsx",
-            "created_at": datetime.utcnow().isoformat(),
             "total_wells": len(results),
             "matches_over_90": matches_over_90,
             "matches_below_90": matches_below_90,
             "percent_high_quality": percent_high_quality
-        }
+        })
+
 
         print(f"[✅] Job {job_id} completed successfully.")
     except Exception as e:
