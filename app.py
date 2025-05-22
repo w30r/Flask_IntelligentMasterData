@@ -72,17 +72,23 @@ def submit_task():
     if not data or 'file' not in data or 'well_column' not in data:
         return jsonify({"status": "error", "message": "Missing 'file' or 'well_column'"}), 400
 
+    file_name = data.get("file_name", "uploaded_file.xlsx")  # Default if not provided
     job_id = str(uuid.uuid4())
+
     jobs[job_id] = {
         "status": "pending",
-        "created_at": datetime.utcnow().isoformat()  # <-- ADD THIS
+        "created_at": datetime.utcnow().isoformat(),
+        "submitted_file_name": file_name  # 💾 store it
     }
 
-    # Start background thread
-    thread = threading.Thread(target=process_file_async, args=(job_id, data['file'], data['well_column']))
+    thread = threading.Thread(
+        target=process_file_async,
+        args=(job_id, data['file'], data['well_column'])
+    )
     thread.start()
 
     return jsonify({"status": "submitted", "job_id": job_id}), 202
+
 
 # Poll result endpoint
 @app.route('/get-result/<job_id>', methods=['GET'])
@@ -102,6 +108,7 @@ def list_jobs():
             "job_id": job_id,
             "status": job["status"],
             "created_at": job.get("created_at"),
+            "submitted_file_name": job.get("submitted_file_name"),
             "total_wells": job.get("total_wells"),
             "matches_over_90": job.get("matches_over_90"),
             "matches_below_90": job.get("matches_below_90"),
@@ -110,6 +117,7 @@ def list_jobs():
         job_list.append(job_summary)
 
     return jsonify(job_list)
+
 
 
 
