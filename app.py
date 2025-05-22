@@ -2,7 +2,7 @@ from flask import Flask, request, jsonify
 import pandas as pd
 from rapidfuzz import fuzz, process
 import base64, io, uuid, threading, os
-import datetime
+from datetime import datetime
 
 app = Flask(__name__)
 
@@ -64,7 +64,10 @@ def submit_task():
         return jsonify({"status": "error", "message": "Missing 'file' or 'well_column'"}), 400
 
     job_id = str(uuid.uuid4())
-    jobs[job_id] = {"status": "pending"}
+    jobs[job_id] = {
+        "status": "pending",
+        "created_at": datetime.utcnow().isoformat()  # <-- ADD THIS
+    }
 
     # Start background thread
     thread = threading.Thread(target=process_file_async, args=(job_id, data['file'], data['well_column']))
