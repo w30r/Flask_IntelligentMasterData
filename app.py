@@ -14,6 +14,8 @@ MASTER_WELL_NAMES = MASTER_DF["Well Name"].dropna().astype(str).tolist()
 
 # In-memory job store
 jobs = {}
+# Global list to store matched results for OS
+well_mapping_json_library = []
 
 # Background processing function
 def process_file_async(job_id, base64_file, well_column):
@@ -58,6 +60,18 @@ def process_file_async(job_id, base64_file, well_column):
             "matches_below_90": matches_below_90,
             "percent_high_quality": percent_high_quality
         })
+
+        # Extend global JSON list for matches >= 90
+        file_label = jobs[job_id].get("submitted_file_name", f"Job_{job_id}").rsplit(".", 1)[0]
+
+        for r in results:
+            if r["Similarity Score"] >= 90:
+                well_mapping_json_library.append({
+                    "User Well Name": r["User Well Name"],
+                    "Matched Master Well Name": r["Matched Master Well Name"],
+                    "Similarity Score": r["Similarity Score"],
+                    "FileName": file_label
+                })
 
         # file_label = jobs[job_id].get("submitted_file_name", f"Job_{job_id}").rsplit(".", 1)[0]
         # update_well_mapping_library(file_label, results)
@@ -192,6 +206,10 @@ def download_library():
 
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/get-library-os', methods=['GET'])
+def get_library_os():
+    return jsonify(well_mapping_json_library)
 
 
 if __name__ == '__main__':
