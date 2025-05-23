@@ -30,7 +30,7 @@ def process_file_async(job_id, base64_file, well_column):
             print(f"[❌] Job {job_id} failed: column '{well_column}' not found")
             return
 
-        user_wells = user_df[well_column].dropna().astype(str).tolist()
+        user_wells = list(dict.fromkeys(user_df[well_column].dropna().astype(str)))
         results = []
 
         for well in user_wells:
