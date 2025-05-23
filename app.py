@@ -13,9 +13,10 @@ MASTER_DF = pd.read_excel("MasterWells.xlsx")
 MASTER_WELL_NAMES = MASTER_DF["Well Name"].dropna().astype(str).tolist()
 
 # In-memory job store
-jobs = {}
 # Global list to store matched results for OS
+jobs = {}
 well_mapping_json_library = []
+similaritythreshold = 80
 
 # Background processing function
 def process_file_async(job_id, base64_file, well_column):
@@ -47,17 +48,17 @@ def process_file_async(job_id, base64_file, well_column):
 
         encoded_result = base64.b64encode(output.read()).decode("utf-8")
 
-        matches_over_90 = sum(1 for r in results if r["Similarity Score"] >= 90)
-        matches_below_90 = len(results) - matches_over_90
-        percent_high_quality = round(matches_over_90 / len(results) * 100, 2)
+        matches_over_threshold = sum(1 for r in results if r["Similarity Score"] >= similaritythreshold)
+        matches_below_threshold = len(results) - matches_over_threshold
+        percent_high_quality = round(matches_over_threshold / len(results) * 100, 2)
 
         jobs[job_id].update({
             "status": "done",
             "fileContent": encoded_result,
             "fileName": "matched_wells.xlsx",
             "total_wells": len(results),
-            "matches_over_90": matches_over_90,
-            "matches_below_90": matches_below_90,
+            "matches_over_threshold": matches_over_threshold,
+            "matches_below_threshold": matches_below_threshold,
             "percent_high_quality": percent_high_quality
         })
 
@@ -65,16 +66,13 @@ def process_file_async(job_id, base64_file, well_column):
         file_label = jobs[job_id].get("submitted_file_name", f"Job_{job_id}").rsplit(".", 1)[0]
 
         for r in results:
-            if r["Similarity Score"] >= 90:
+            if r["Similarity Score"] >= similaritythreshold:
                 well_mapping_json_library.append({
-                    "User Well Name": r["User Well Name"],
-                    "Matched Master Well Name": r["Matched Master Well Name"],
-                    "Similarity Score": r["Similarity Score"],
+                    "Variant": r["User Well Name"],
+                    "Master": r["Matched Master Well Name"],
+                    "Score": r["Similarity Score"],
                     "FileName": file_label
                 })
-
-        # file_label = jobs[job_id].get("submitted_file_name", f"Job_{job_id}").rsplit(".", 1)[0]
-        # update_well_mapping_library(file_label, results)
 
 
         print(f"[✅] Job {job_id} completed successfully.")
@@ -156,8 +154,8 @@ def list_jobs():
             "created_at": job.get("created_at"),
             "submitted_file_name": job.get("submitted_file_name"),
             "total_wells": job.get("total_wells"),
-            "matches_over_90": job.get("matches_over_90"),
-            "matches_below_90": job.get("matches_below_90"),
+            "matches_over_threshold": job.get("matches_over_threshold"),
+            "matches_below_threshold": job.get("matches_below_threshold"),
             "percent_high_quality": job.get("percent_high_quality")
         }
         job_list.append(job_summary)
