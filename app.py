@@ -3,8 +3,8 @@ import pandas as pd
 from rapidfuzz import fuzz, process
 import base64, io, uuid, threading, os
 from datetime import datetime
-from openpyxl import load_workbook
-from openpyxl.utils import get_column_letter
+# from openpyxl import load_workbook
+# from openpyxl.utils import get_column_letter
 
 app = Flask(__name__)
 
@@ -59,8 +59,8 @@ def process_file_async(job_id, base64_file, well_column):
             "percent_high_quality": percent_high_quality
         })
 
-        file_label = jobs[job_id].get("submitted_file_name", f"Job_{job_id}").rsplit(".", 1)[0]
-        update_well_mapping_library(file_label, results)
+        # file_label = jobs[job_id].get("submitted_file_name", f"Job_{job_id}").rsplit(".", 1)[0]
+        # update_well_mapping_library(file_label, results)
 
 
         print(f"[✅] Job {job_id} completed successfully.")
@@ -68,33 +68,33 @@ def process_file_async(job_id, base64_file, well_column):
         jobs[job_id] = {"status": "error", "message": str(e)}
         print(f"[❌] Job {job_id} failed with error: {e}")
 
-def update_well_mapping_library(file_label, results):
-    LIBRARY_PATH = "WellMappingLibrary.xlsx"
+# def update_well_mapping_library(file_label, results):
+#     LIBRARY_PATH = "WellMappingLibrary.xlsx"
 
-    if not os.path.exists(LIBRARY_PATH):
-        base_df = pd.DataFrame(sorted(set(MASTER_WELL_NAMES)), columns=["Well Name"])
-        base_df.to_excel(LIBRARY_PATH, index=False)
+#     if not os.path.exists(LIBRARY_PATH):
+#         base_df = pd.DataFrame(sorted(set(MASTER_WELL_NAMES)), columns=["Well Name"])
+#         base_df.to_excel(LIBRARY_PATH, index=False)
 
-    # Load existing library
-    lib_df = pd.read_excel(LIBRARY_PATH)
+#     # Load existing library
+#     lib_df = pd.read_excel(LIBRARY_PATH)
 
-    # Map from well name → matched name
-    mapping_dict = {
-        r["Matched Master Well Name"]: r["User Well Name"]
-        for r in results if r["Similarity Score"] >= 90
-    }
+#     # Map from well name → matched name
+#     mapping_dict = {
+#         r["Matched Master Well Name"]: r["User Well Name"]
+#         for r in results if r["Similarity Score"] >= 90
+#     }
 
-    # Add new column
-    new_column_name = file_label
-    if new_column_name in lib_df.columns:
-        count = 2
-        while f"{new_column_name}_v{count}" in lib_df.columns:
-            count += 1
-        new_column_name = f"{new_column_name}_v{count}"
+#     # Add new column
+#     new_column_name = file_label
+#     if new_column_name in lib_df.columns:
+#         count = 2
+#         while f"{new_column_name}_v{count}" in lib_df.columns:
+#             count += 1
+#         new_column_name = f"{new_column_name}_v{count}"
 
-    lib_df[new_column_name] = lib_df["Well Name"].map(mapping_dict)
+#     lib_df[new_column_name] = lib_df["Well Name"].map(mapping_dict)
 
-    lib_df.to_excel(LIBRARY_PATH, index=False)
+#     lib_df.to_excel(LIBRARY_PATH, index=False)
 
 # Submit endpoint
 @app.route('/submit-task', methods=['POST'])
